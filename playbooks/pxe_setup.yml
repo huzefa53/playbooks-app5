@@ -1,0 +1,29 @@
+---
+# This playbook is for Automated un-attended kickstart installation
+# Playbook will validate hostname, ip, console access than update dhcpd.conf, generate pxe files and reboot the host via CLI
+# ansible-playbook  -i inventory/hosts deploy_adserver.yml  --extra-vars "OS=centos|redhat V=os-version" -k
+
+- name: -> Doing pxe setup on {{ target  }} nodes
+  hosts: "{{ target }}"
+  gather_facts: True
+
+  vars_files:
+  - vars/global.yml
+
+  pre_tasks:
+  - name: -> Is OS define??
+    assert: msg="Please make sure the variables 'OS' is specified in the command line -e 'OS=centos'"
+    when: OS is not defined or OS not in ('centos')
+
+  - name: -> Is Version define??
+    fail: msg="Please make sure the Version of OS that you want to install is define in command line -e 'V=6.3(your OS version)'"
+    when: V is not defined or V not in ('6.1','6.2','6.3') 
+
+  - name: -> Hostname Check??
+    include: "{{tasks}}/check_hostname.yml"
+
+  - name: -> Console Check??
+    include: "{{tasks}}/check_console.yml"
+  
+  - name: -> Dhcpd.conf check??
+    include: "{{tasks}}/update_dhcp.yml"

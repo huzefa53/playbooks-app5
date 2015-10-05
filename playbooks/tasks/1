@@ -1,0 +1,35 @@
+---
+  #- name: -> Is {{hostname} Ansible Managed??
+  #  debug: msg="{{hostname}} is already managed by Ansible"
+
+  - name: -> Check the hostname {{ansible_hostname}} is present in dns...???
+    shell: host {{ inventory_hostname }}
+    register: is_hostname_present
+    ignore_errors: true
+
+  - name: -> Failed if hostname {{ansible_hostname}} is not correctly setup on target host.
+    fail: msg="Hostname '{{inventory_hostname}}' is not correct, not matching with dns, please check on the host to correct it"
+    when: is_hostname_present|failed
+
+  - name: -> Check if the host ip is pinging or not??
+    local_action: shell ping -c1 `host {{ inventory_hostname}} | grep "address" |awk '{print $NF}'`
+    register: is_ip_reachable
+    ignore_errors: True
+
+  - name: -> Failed if host ip is not correctly pinging.
+    fail: msg="IP '{{ansible_hostname}}' is not pinging, Please check"
+    when: is_ip_reachable|failed
+
+  - name: -> Check the hostname {{ansible_hostname}} is correct...???
+    local_action: shell ping -c1 {{ansible_hostname}}
+    register: is_hostname_correct
+    ignore_errors: true
+
+  - name: -> Failed if hostname {{ansible_hostname}} is not correctly setup on target host.
+    fail: msg="Hostname '{{ansible_hostname}}' is not correct, not matching with dns, please check on the host to correct it"
+    when: is_hostname_correct|failed
+
+  - name: -> Check if the {{ ip }} is correct??
+    local_action: shell {{ hostvars['test']['ansible_eth0']['ipv4']['address'] }} 
+    register: is_not_vm
+    ignore_errors: True

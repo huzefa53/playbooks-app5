@@ -1,0 +1,14 @@
+---
+  - name: -> Check the hostname {{ansible_hostname}} is correct...???
+    local_action: shell ping -c1 {{ansible_hostname}}
+    register: is_hostname_correct
+    ignore_errors: true
+
+  - name: -> Failed if hostname {{ansible_hostname}} is not correctly setup on target host.
+    fail: msg="Hostname '{{ansible_hostname}}' is not correct, not matching with dns, please check on the host to correct it"
+    when: is_hostname_correct|failed
+
+  - name: -> Check if the {{hostname}} is vm??
+    shell: ifconfig eth0 | grep -i Interrupt >/dev/null && echo true || echo false
+    register: is_not_vm
+    ignore_errors: True

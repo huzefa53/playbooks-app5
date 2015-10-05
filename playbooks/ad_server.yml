@@ -1,0 +1,96 @@
+---
+# This playbook deploys the adserver setup on specified host.
+# Example Ansible CLI command:
+# For Adserver setup -->
+# ansible-playbook  -i inventory/hosts deploy_adserver.yml  --extra-vars "dc=ggva target=adserver" -k
+
+- name: -> Setup Adserver on {{ target }} nodes
+  hosts: "{{ target }}"
+  gather_facts: True
+
+  vars_files:
+  - vars/global.yml
+  - "{{ group_vars }}/common/{{ dc }}"
+  - "{{ group_vars }}/adserver/{{ dc }}"
+
+  user: root
+
+  handlers:
+  - include: "{{ basedir }}/handlers/restart_services.yml"
+
+  pre_tasks:
+  - name: -> Is target defined??
+    fail: msg="Please make sure the variables 'target' is specified and not assigned as 'all' in the command line -e 'target=yourtarget'"
+    when: (target is defined and target == "all")
+
+  - name: -> Is dc defined??
+    fail: msg=" Please make sure the variable 'dc' is specified in the command line -e 'dc=datacentershortname', ref-> https://home.ninginc.com/display/DOP/HowTo+Run+Ansible+post-OS+deployment+playbooks"
+    when: dc is not defined or dc not in ( 'ggva', 'colo', 'ning', 'rs', 'rsuk' )
+
+  - name: -> Is OS installation done recently??
+    include: "{{tasks}}/check_os_install_date.yml"
+
+  - name: -> Is OS disk partitioned correct??
+    include: "{{tasks}}/check_disk_setup.yml"
+
+  - name: -> Is raidlevel is setup correctly as per our requirement??
+    include: "{{tasks}}/check_raidlevel.yml"
+
+  - name: -> Is network setup correctly??
+    include: "{{tasks}}/check_network.yml"
+
+  roles:
+  - baseinstall
+  - apache      # Install apache
+  - php         # This includes and resolves depenciancies apache
+  - adserver    # Adserver env setup
+
+  tasks:
+  - include: "{{ roles }}/php/tasks/install_php_memcached.yml"
+  - include: "{{ roles }}/php/tasks/install_php_oci8.yml"
+  - include: "{{ roles }}/monitoring/tasks/setup-gmond-config.yml"
+
+- name: -> Add AD-Server in check_mk server
+  hosts: "{{ target }}"
+  gather_facts: True
+  serial: 1
+
+  vars_files:
+  - vars/global.yml
+  - "{{ group_vars }}/common/{{ dc }}"
+  - "{{ group_vars }}/adserver/{{ dc }}"
+
+  user: root
+
+  handlers:
+  - include: "{{ roles }}/check_mk-server/handlers/main.yml"
+
+  tasks:
+  - include: "{{ roles }}/check_mk-server/tasks/add_host.yml"
+
+- name: -> Reboot host
+  hosts: "{{ target }}"
+  gather_facts: true
+  user: root
+
+  vars_files:
+  - vars/global.yml
+  - "{{ group_vars }}/common/{{ dc }}"
+
+  tasks:
+  - name: -> Schedule 30 of HOST downtime
+    nagios: action=downtime minutes=30 service=host host={{hostname}}
+    delegate_to: "{{check_mk_server}}"
+    ignore_errors: true
+
+  - name: -> Reboot the host
+    command: /sbin/reboot
+    register: bounce_host
+
+  - name: -> Wait for host to come back - up to 15 minutes
+    local_action: wait_for host={{hostname}} port=22 delay=120 timeout=900
+    when: bounce_host.changed
+
+  - name: -> Restart gmond
+    service: name=gmond state=restarted enabled=yes
+

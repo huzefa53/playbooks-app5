@@ -1,0 +1,11 @@
+---
+  - name: Update dhcpd.conf
+    local_action: copy src=/etc/dhcp/dhcpd.conf dest=/var/tmp/dhcpd.conf backup=yes
+
+  - name: Checking host entry is present in dhcpd.conf or not
+    shell: grep "{{ inventory_hostname }}" /etc/init.d/dhcpd.conf
+    register: is_hostentry_present
+
+  - name: Failed if {{ inventory_hostname }} is present
+    fail: msg= Host entry not present in dhcpd.conf
+    when: is_hostentry_present|failed

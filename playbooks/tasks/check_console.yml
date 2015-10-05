@@ -1,0 +1,29 @@
+---
+  - name: -> check console ip entry is present in our DNS?
+    shell: host {{ inventory_hostname }}-con
+    register: is_hostconsole_present
+    ignore_errors: true
+
+  - name: -> Failed if console ip entry is not present.
+    fail: msg="console entry '{{ inventory_hostname }}-con' is not present in DNS, Please check"
+    when: is_hostconsole_present|failed
+
+  - name: -> Get console IP
+    shell: host {{inventory_hostname}}-con | grep "address" |awk '{print $NF}'
+    register: is_con_host_ip
+
+  - name: -> check if console ip is pinging
+    shell: ping -c1 `host {{ inventory_hostname }}-con |grep address | awk '{print $NF}'`
+    register: is_consoleip_reachable
+    ignore_errors: true
+ 
+  - name: -> Failed if console ip is not pinging.
+    fail: msg="console ip '{{ inventory_hostname }}-con' is not pinging, Please check"
+    when: is_consoleip_reachable|failed
+
+  - name: -> check IPMI console access..
+    shell: ipmitool -H {{ is_con_host_ip.stdout }} -U admin -P admin power status
+    register: is_ipmiconsole_reachable
+    ignore_errors: true
+
+  

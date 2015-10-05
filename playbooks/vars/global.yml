@@ -1,0 +1,13 @@
+---
+# Our paths, replace with your ansible working directory.
+# Most of the cases, it should be your actual cloned path of git repo
+basedir: /home/prod/playbooks
+#
+# Our paths
+files: "{{ basedir }}/files"
+roles: "{{ basedir }}/roles"
+group_vars: "{{ basedir }}/group_vars"
+handlers: "{{ basedir }}/handlers"
+tasks: "{{ basedir }}/tasks"
+scripts: "{{ basedir }}/scripts"
+vars_path: "{{ basedir }}/vars"
